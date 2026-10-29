@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Koreva</string>
+    <string name="title_activity_main">Koreva</string>
+    <string name="package_name">com.koreva.app</string>
+    <string name="custom_url_scheme">com.koreva.app</string>
+</resources>
