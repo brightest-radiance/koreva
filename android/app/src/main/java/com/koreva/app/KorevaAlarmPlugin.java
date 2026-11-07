@@ -8,6 +8,12 @@ import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.Service;
 import android.content.BroadcastReceiver;
+import android.content.ContentValues;
+import android.os.Environment;
+import android.provider.MediaStore;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.OutputStream;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -72,6 +78,56 @@ public class KorevaAlarmPlugin extends Plugin {
     public void test(PluginCall call) {
         Alarms.oneShot(getContext(), "Koreva test alarm", 10, 5000);
         call.resolve();
+    }
+
+    @PluginMethod
+    public void saveBackup(PluginCall call) {
+        String name = call.getString("name", "koreva-backup.json");
+        String data = call.getString("data", "");
+        try {
+            Context c = getContext();
+            String uri;
+            OutputStream os;
+            if (Build.VERSION.SDK_INT >= 29) {
+                ContentValues v = new ContentValues();
+                v.put(MediaStore.MediaColumns.DISPLAY_NAME, name);
+                v.put(MediaStore.MediaColumns.MIME_TYPE, "application/json");
+                v.put(MediaStore.MediaColumns.RELATIVE_PATH, "Documents/Koreva");
+                Uri u = c.getContentResolver().insert(MediaStore.Files.getContentUri("external"), v);
+                os = c.getContentResolver().openOutputStream(u);
+                uri = u.toString();
+            } else {
+                File d = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS), "Koreva");
+                d.mkdirs();
+                File f = new File(d, name);
+                os = new FileOutputStream(f);
+                uri = Uri.fromFile(f).toString();
+            }
+            os.write(data.getBytes("UTF-8"));
+            os.close();
+            JSObject r = new JSObject();
+            r.put("path", "Documents/Koreva/" + name);
+            r.put("uri", uri);
+            call.resolve(r);
+        } catch (Exception e) {
+            call.reject("save failed: " + e.getMessage());
+        }
+    }
+
+    @PluginMethod
+    public void shareFile(PluginCall call) {
+        try {
+            Intent s = new Intent(Intent.ACTION_SEND);
+            s.setType("application/json");
+            s.putExtra(Intent.EXTRA_STREAM, Uri.parse(call.getString("uri")));
+            s.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            Intent ch = Intent.createChooser(s, "Share Koreva backup");
+            ch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            getContext().startActivity(ch);
+            call.resolve();
+        } catch (Exception e) {
+            call.reject(e.getMessage());
+        }
     }
 
     public static class Alarms {
